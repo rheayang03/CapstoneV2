@@ -1,0 +1,448 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages
+   /Kids [ 3 0 R 4 0 R 5 0 R 6 0 R ]
+   /Count 4
+>>
+endobj
+3 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /MediaBox [0 0 612 792]
+   /Contents 7 0 R
+   /Resources << /Font << /F1 11 0 R >> >>
+>>
+endobj
+4 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /MediaBox [0 0 612 792]
+   /Contents 8 0 R
+   /Resources << /Font << /F1 11 0 R >> >>
+>>
+endobj
+5 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /MediaBox [0 0 612 792]
+   /Contents 9 0 R
+   /Resources << /Font << /F1 11 0 R >> >>
+>>
+endobj
+6 0 obj
+<< /Type /Page
+   /Parent 2 0 R
+   /MediaBox [0 0 612 792]
+   /Contents 10 0 R
+   /Resources << /Font << /F1 11 0 R >> >>
+>>
+endobj
+7 0 obj
+<< /Length 3155 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+72 760 Td
+(EXPLAIN: Prototype 1 — Login to POS) Tj
+T*
+(Author: Canteen System \(Student Prototype\)) Tj
+T*
+(Date: 2025-09-15) Tj
+T*
+(Overview) Tj
+T*
+(This document explains what we accomplished in the first prototype, focusing on the) Tj
+T*
+(end-to-end flow from Login to the POS \(Point of Sale\) module. It also lists every) Tj
+T*
+(file we added or modified and describes the purpose of each change. The goal is to) Tj
+T*
+(show a clear understanding of how authentication, permissions, POS operations,) Tj
+T*
+(images/media, order queue, and order history now work together.) Tj
+T*
+(Authentication and Access Control) Tj
+T*
+(Purpose: Ensure only authorized users can use POS features and that UI controls) Tj
+T*
+(respect role-based permissions \(admin/manager/staff\).) Tj
+T*
+(Key Files) Tj
+T*
+(- src/components/AuthContext.jsx \(modified\):) Tj
+T*
+(- Centralizes login, logout, token persistence, refresh token handling, and) Tj
+T*
+(permission checks via `can\(\)` / `hasRole\(\)` helpers.) Tj
+T*
+(- Wires the API client to always attach the bearer token and auto-refresh or) Tj
+T*
+(sign-out on 401.) Tj
+T*
+(- src/lib/permissions.js \(added\):) Tj
+T*
+(- Mirrors backend default permissions to gate UI controls.) Tj
+T*
+(- Staff and Manager can handle order queue and update statuses by default.) Tj
+T*
+(Flow) Tj
+T*
+(1\) User logs in; we persist the token in local/session storage based on the) Tj
+T*
+(remember preference.) Tj
+T*
+(2\) `AuthContext` configures the API client so every request carries the token.) Tj
+T*
+(3\) Components use `useAuth\(\).can\('permission.code'\)` to show/hide controls.) Tj
+T*
+(POS — Menu, Images, and Categories) Tj
+T*
+(Purpose: Make the POS menu usable and polished: clear category tabs \(with an) Tj
+T*
+("All" tab\), searchable items, and reliable images.) Tj
+T*
+(Key Files) Tj
+T*
+(- src/hooks/usePOSData.js \(modified\):) Tj
+T*
+(- Loads categories and items, normalizes category names, and injects a first) Tj
+T*
+("All" tab that shows every item.) Tj
+T*
+(- Normalizes item.image from multiple possible API fields \(image, imageUrl,) Tj
+T*
+(photo, picture\).) Tj
+T*
+(- Listens for a global `menu.items.updated` event so POS refreshes after menu) Tj
+T*
+(changes \(e.g., image upload or item edit\) without a manual page refresh.) Tj
+T*
+(- src/components/pos/MenuSelection.jsx \(modified\):) Tj
+T*
+(- Renders category tabs correctly \(no more "[object Object]"\).) Tj
+T*
+(- Shows images if available; supports search across categories.) Tj
+T*
+(- src/api/services/menuService.js \(modified\):) Tj
+T*
+(- Normalizes image fields from the backend and builds absolute media URLs using) Tj
+T*
+(`VITE_MEDIA_BASE_URL` \(preferred\) or `VITE_API_BASE_URL` as a fallback.) Tj
+T*
+(- After image upload, returns a cache-busted URL so new images appear) Tj
+T*
+(immediately.) Tj
+T*
+(- src/hooks/useMenuManagement.js \(modified\):) Tj
+T*
+(- After creating/updating items or uploading an image, dispatches the) Tj
+T*
+(`menu.items.updated` event so POS refreshes the menu automatically.) Tj
+T*
+(Backend Media and Image Uploads) Tj
+T*
+(Purpose: Make images reliably upload and display in Menu Management and POS.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Length 2917 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+72 760 Td
+(Key Files) Tj
+T*
+(- backend/config/urls.py \(modified\):) Tj
+T*
+(- Serves `/media/` files in development when DEBUG is true.) Tj
+T*
+(- backend/api/views_menu.py \(modified\):) Tj
+T*
+(- Image upload endpoint validates content-type and size \(now configurable via) Tj
+T*
+(DJANGO_MENU_IMAGE_MAX_MB, default 25MB\). Accepts image/jpg.) Tj
+T*
+(- backend/api/views_diag.py \(added\):) Tj
+T*
+(- Diagnostics endpoints including `/api/diagnostics/media` to verify that) Tj
+T*
+(DB-referenced images exist on storage.) Tj
+T*
+(- backend/api/management/commands/verify_media.py \(added\):) Tj
+T*
+(- `python manage.py verify_media [--fix]` helps audit or clear broken image) Tj
+T*
+(references.) Tj
+T*
+(Order Queue — Walk-in and Online Orders) Tj
+T*
+(Purpose: Make order queue functional and easy to operate by staff.) Tj
+T*
+(Key Files) Tj
+T*
+(- src/components/pos/OrderQueue.jsx \(modified\):) Tj
+T*
+(- Fixed date crash by guarding time parsing; shows "time ago" safely.) Tj
+T*
+(- Shows the correct status chips.) Tj
+T*
+(- For Walk-in orders, action buttons progress status: Pending → Start) Tj
+T*
+(Preparing → Mark Ready → Complete. These buttons are permission-gated via) Tj
+T*
+(`can\('order.status.update'\)`.) Tj
+T*
+(- src/api/services/orderService.js \(modified\):) Tj
+T*
+(- Normalizes backend statuses so the UI logic is consistent:) Tj
+T*
+(• in_queue → pending) Tj
+T*
+(• in_progress → preparing) Tj
+T*
+(- Keeps dates normalized to ISO strings.) Tj
+T*
+(Order Creation and Payment in POS) Tj
+T*
+(Purpose: Ensure a smooth flow from building an order to payment.) Tj
+T*
+(Key Files) Tj
+T*
+(- src/components/POS.jsx \(modified\):) Tj
+T*
+(- Wires together MenuSelection, CurrentOrder, and OrderQueue tabs.) Tj
+T*
+(- Polls order queue and refreshes on status updates.) Tj
+T*
+(- Opens the Payment modal and Order History modal.) Tj
+T*
+(- src/hooks/usePOSLogic.js \(modified\):) Tj
+T*
+(- Adds items, updates quantities, applies discounts, computes totals.) Tj
+T*
+(- Creates orders via the backend and then processes payment.) Tj
+T*
+(- src/components/pos/PaymentModal.jsx \(modified\):) Tj
+T*
+(- Uses permission checks for payment processing.) Tj
+T*
+(Backend Order and Payment Behavior) Tj
+T*
+(Purpose: Keep server-side data accurate and aligned with the UI flow.) Tj
+T*
+(Key Files) Tj
+T*
+(- backend/api/views_orders.py \(added/modified\):) Tj
+T*
+(- When creating orders, defaults `payment_method='cash'` for walk-in orders.) Tj
+T*
+(- Enforces state transitions on the server: pending/in_queue → in_progress →) Tj
+T*
+(ready → completed/cancelled.) Tj
+T*
+(- backend/api/views_payments.py \(modified\):) Tj
+T*
+(- After successful payment, updates the parent order’s payment_method to the) Tj
+T*
+(actual method used.) Tj
+T*
+(- backend/api/management/commands/set_walkin_default_cash.py \(added\):) Tj
+T*
+(- Backfills existing walk-in orders with empty payment_method to 'cash'.) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Length 3267 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+72 760 Td
+(Order History \(Modal\)) Tj
+T*
+(Purpose: Allow staff to review past orders.) Tj
+T*
+(Key Files) Tj
+T*
+(- src/hooks/useOrderManagement.js \(modified\):) Tj
+T*
+(- Stabilized fetches; added an in-flight guard to avoid overlapping requests) Tj
+T*
+(and rate limits.) Tj
+T*
+(- History loads on-demand when the modal opens to reduce background load.) Tj
+T*
+(- Provides a fallback to recent orders if no completed/cancelled/refunded) Tj
+T*
+(orders exist yet, so the modal never looks empty during early testing.) Tj
+T*
+(- src/components/pos/OrderHistoryModal.jsx \(modified\):) Tj
+T*
+(- Renders robustly \(handles missing fields\), shows loading/empty state, and) Tj
+T*
+(includes a Refresh button.) Tj
+T*
+(Login → POS Flow \(Narrative\)) Tj
+T*
+(1\) Login: User signs in, token is stored. AuthContext wires token to API calls,) Tj
+T*
+(and `can\(\)` exposes effective permissions for UI gating.) Tj
+T*
+(2\) Menu & Categories: POS fetches categories/items; an "All" tab gives quick) Tj
+T*
+(access to all items. Images load from absolute media URLs; after image) Tj
+T*
+(updates, POS auto-refreshes.) Tj
+T*
+(3\) Build Order: Staff selects items, adjusts quantities, and applies optional) Tj
+T*
+(discounts. Totals are computed live.) Tj
+T*
+(4\) Queue & Status: Placing an order enqueues it. Walk-in orders start as) Tj
+T*
+(pending \(server in_queue\). Staff progresses states via buttons to preparing,) Tj
+T*
+(ready, and completed.) Tj
+T*
+(5\) Payment: Processing payment records a PaymentTransaction and syncs the) Tj
+T*
+(order’s payment_method. Walk-in orders default to cash; card/mobile requires) Tj
+T*
+(tokens per provider.) Tj
+T*
+(6\) History: Staff can open Order History to view completed/cancelled/refunded) Tj
+T*
+(orders. Fetch is on-demand, with loading/empty state and optional refresh.) Tj
+T*
+(List of Added/Modified Files) Tj
+T*
+(Frontend) Tj
+T*
+(- src/components/AuthContext.jsx \(modified\) — Auth/token/permissions flow.) Tj
+T*
+(- src/components/POS.jsx \(modified\) — Main POS container and tabs.) Tj
+T*
+(- src/components/pos/MenuSelection.jsx \(modified\) — Category tabs, search, images.) Tj
+T*
+(- src/components/pos/OrderQueue.jsx \(modified\) — Time-safe rendering and action buttons.) Tj
+T*
+(- src/components/pos/OrderHistoryModal.jsx \(modified\) — History list with loading/empty and) Tj
+T*
+(refresh.) Tj
+T*
+(- src/components/pos/PaymentModal.jsx \(modified\) — Payment with permission checks.) Tj
+T*
+(- src/hooks/usePOSData.js \(modified\) — Menu/categories loader, All tab, image normalization,) Tj
+T*
+(auto-refresh.) Tj
+T*
+(- src/hooks/usePOSLogic.js \(modified\) — Cart/discounts/totals, order creation, payment call.) Tj
+T*
+(- src/hooks/useMenuManagement.js \(modified\) — Dispatch POS refresh events on item/image) Tj
+T*
+(updates.) Tj
+T*
+(- src/hooks/useOrderManagement.js \(modified\) — Stable, guarded fetches for) Tj
+T*
+(orders/queue/history.) Tj
+T*
+(- src/api/services/menuService.js \(modified\) — Image URL normalization, absolute URLs,) Tj
+T*
+(cache-busting.) Tj
+T*
+(- src/api/services/orderService.js \(modified\) — Status and date normalization, queue/history) Tj
+T*
+(fetch.) Tj
+T*
+(- src/lib/permissions.js \(added\) — Default role permissions for UI gating.) Tj
+T*
+(Backend) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Length 1725 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+72 760 Td
+(- backend/config/urls.py \(modified\) — Serve /media in DEBUG.) Tj
+T*
+(- backend/api/views_menu.py \(modified\) — Larger uploads; stricter validation.) Tj
+T*
+(- backend/api/views_diag.py \(added\) — /api/diagnostics/media for media health checks.) Tj
+T*
+(- backend/api/management/commands/verify_media.py \(added\) — Verify/fix broken image references.) Tj
+T*
+(- backend/api/views_orders.py \(added/modified\) — Default walk-in payment_method='cash'; order) Tj
+T*
+(creation.) Tj
+T*
+(- backend/api/views_payments.py \(modified\) — Sync order payment_method after payment.) Tj
+T*
+(- backend/api/management/commands/set_walkin_default_cash.py \(added\) — Backfill existing) Tj
+T*
+(walk-in orders.) Tj
+T*
+(Demo Checklist \(for Adviser\)) Tj
+T*
+(1\) Login with a staff account; confirm POS menu loads.) Tj
+T*
+(2\) Upload a menu item image in Menu Management; verify it appears immediately) Tj
+T*
+(in both Menu Management and POS \(thanks to absolute URLs + auto-refresh\).) Tj
+T*
+(3\) Add items to order in POS, apply a discount, and process a cash payment.) Tj
+T*
+(4\) Check Order Queue: progress a Walk-in order through Pending → Preparing →) Tj
+T*
+(Ready → Completed.) Tj
+T*
+(5\) Open Order History; click Refresh to fetch results on demand.) Tj
+T*
+(6\) \(Optional\) Visit /api/diagnostics/media to validate image files.) Tj
+T*
+(Environment Notes) Tj
+T*
+(- Frontend: set VITE_MEDIA_BASE_URL to your backend origin \(e.g.,) Tj
+T*
+(http://localhost:8000\). VITE_API_BASE_URL can be http://localhost:8000/api.) Tj
+T*
+(- Backend: ensure DEBUG=True in dev so /media is served; in production, serve) Tj
+T*
+(/media via web server \(e.g., Nginx alias\).) Tj
+T*
+(End of document.) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /Name /F1 /BaseFont /Helvetica >>
+endobj
+xref
+0 12
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000141 00000 n
+0000000280 00000 n
+0000000419 00000 n
+0000000558 00000 n
+0000000698 00000 n
+0000003905 00000 n
+0000006874 00000 n
+0000010193 00000 n
+0000011971 00000 n
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+12052
+%%EOF

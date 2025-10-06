@@ -1,0 +1,51 @@
+// src/data/comboMeals.js
+export const comboMeals = [
+  {
+    id: '11',
+    name: 'Rice + Vegetable + Lumpia',
+    description: 'Complete combo meal with rice, vegetables, and lumpia.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+  {
+    id: '12',
+    name: 'Rice + Hamburger + Egg',
+    description: 'Hearty combo with rice, hamburger, and egg.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+  {
+    id: '13',
+    name: 'Rice + Bihon/Bam-i + Siomai',
+    description: 'Traditional combo with rice, noodles, and siomai.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+  {
+    id: '14',
+    name: 'Rice + Chorizo + Boiled Egg',
+    description: 'Flavorful combo with rice, chorizo, and boiled egg.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+  {
+    id: '15',
+    name: 'Rice + Hotdog + Nugahong',
+    description: 'Classic combo with rice, hotdog, and nugahong.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+  {
+    id: '16',
+    name: 'Rice + Fried Egg + Chorizo',
+    description: 'Simple yet satisfying combo with rice, fried egg, and chorizo.',
+    price: 45,
+    category: 'Combo Meals',
+    available: true,
+  },
+];
