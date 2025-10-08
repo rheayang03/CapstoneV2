@@ -51,14 +51,20 @@ const Notifications = () => {
         createdAt: n.createdAt,
         time: fmtRelative(n.createdAt),
         read: Boolean(n.read || n.isRead),
-        type:
-          n.type === 'low_stock'
-            ? 'warning'
-            : n.type === 'new_order'
-            ? 'info'
-            : n.type === 'payment'
-            ? 'success'
-            : n.type || 'info',
+        topic: (n.topic || n?.meta?.topic || '').toLowerCase(),
+        meta: n.meta || {},
+        payload: n.payload || n?.meta?.payload || {},
+        type: (() => {
+          const topic = (n.topic || n?.meta?.topic || '').toLowerCase();
+          const base = (n.type || '').toLowerCase();
+          if (topic === 'low_stock') return 'warning';
+          if (topic === 'order') return 'info';
+          if (topic === 'payment') return 'success';
+          if (base === 'low_stock') return 'warning';
+          if (base === 'new_order') return 'info';
+          if (base === 'payment') return 'success';
+          return base || 'info';
+        })(),
       }));
       setNotifications(list);
     } catch {}

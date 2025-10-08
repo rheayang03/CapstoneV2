@@ -491,6 +491,8 @@ class NotificationOutbox(models.Model):
     user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name="notif_outbox")
     title = models.CharField(max_length=255)
     message = models.TextField(blank=True)
+    category = models.CharField(max_length=64, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=16, default=STATUS_PENDING)
     attempts = models.PositiveIntegerField(default=0)
     last_error = models.TextField(blank=True)
@@ -502,6 +504,54 @@ class NotificationOutbox(models.Model):
         indexes = [
             models.Index(fields=["status", "created_at"]),
         ]
+
+
+# -----------------------------
+# Customer Feedback
+# -----------------------------
+
+
+class CustomerFeedback(models.Model):
+    CATEGORY_CHOICES = [
+        ("service", "Service"),
+        ("food", "Food"),
+        ("delivery", "Delivery"),
+        ("other", "Other"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    customer_name = models.CharField(max_length=255, blank=True)
+    email = models.EmailField(blank=True)
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField()
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, blank=True)
+    order_number = models.CharField(max_length=64, blank=True)
+    resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    resolved_by = models.ForeignKey(
+        AppUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="resolved_feedback"
+    )
+    submitted_by = models.ForeignKey(
+        AppUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="submitted_feedback"
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "customer_feedback"
+        indexes = [
+            models.Index(fields=["resolved", "created_at"]),
+            models.Index(fields=["rating", "created_at"]),
+            models.Index(fields=["category", "created_at"]),
+        ]
+
+    def mark_resolved(self, *, resolved: bool, actor: AppUser | None = None):
+        self.resolved = resolved
+        self.resolved_at = timezone.now() if resolved else None
+        if resolved:
+            self.resolved_by = actor
+        self.save(update_fields=["resolved", "resolved_at", "resolved_by", "updated_at"])
 
 
 # -----------------------------

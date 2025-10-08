@@ -9,14 +9,8 @@ from django.db import transaction
 from django.db.models import Sum, Q, F
 from django.utils import timezone as dj_tz
 
-from .models import (
-    InventoryItem,
-    StockMovement,
-    Batch,
-    Location,
-    ReorderSetting,
-    AppUser,
-)
+from .models import InventoryItem, StockMovement, Batch, Location, ReorderSetting, AppUser
+from .utils_notify import notify_users
 from .utils_dbtime import db_now
 
 
@@ -61,7 +55,7 @@ def _maybe_notify_low_stock(item_ids: Sequence[str]):
         low = [iid for iid, thr in settings.items() if _as_decimal(totals.get(iid, DEC0)) <= _as_decimal(thr)]
         if not low:
             return
-        from .models import InventoryItem, AppUser, Notification
+        from .models import InventoryItem
         items = {str(x.id): x for x in InventoryItem.objects.filter(id__in=low)}
         managers = list(AppUser.objects.filter(role__in=["manager", "admin"]))
         for iid in low:
@@ -69,12 +63,19 @@ def _maybe_notify_low_stock(item_ids: Sequence[str]):
             if not it:
                 continue
             title = f"Low stock: {it.name}"
-            msg = f"Item '{it.name}' is at or below threshold. Current: {float(totals.get(iid, DEC0) or 0)}"
-            for u in managers:
-                try:
-                    n = Notification.objects.create(user=u, title=title, message=msg, type="warning")
-                except Exception:
-                    continue
+            current_qty = float(totals.get(iid, DEC0) or 0)
+            msg = f"Item '{it.name}' is at or below threshold. Current: {current_qty}"
+            meta = {"itemId": iid, "qty": current_qty}
+            payload = {"url": "/inventory", "meta": meta}
+            notify_users(
+                managers,
+                title=title,
+                message=msg,
+                notif_type="warning",
+                topic="low_stock",
+                meta=meta,
+                payload=payload,
+            )
     except Exception:
         # best-effort
         return

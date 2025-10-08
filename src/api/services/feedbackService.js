@@ -1,87 +1,81 @@
-import { mockFeedback } from '../mockData';
-
-const mockDelay = (ms = 300) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+import apiClient from '../client';
 
 // Normalize backend/static mock data to the shape expected by UI components
-function normalize(item) {
+function normalize(item = {}) {
   return {
-    id: String(item.id),
-    customerName: item.customerName || item.name || 'Anonymous',
-    rating: Number(item.rating || 0),
-    comment: item.comment || '',
-    // UI expects `date`; mock has `createdAt`
-    date: item.date || item.createdAt || new Date().toISOString(),
-    // UI expects boolean `resolved`; mock has `status`
+    id: String(item.id ?? ''),
+    customerName:
+      item.customerName ?? item.customer_name ?? item.name ?? 'Anonymous',
+    rating: Number(item.rating ?? 0),
+    comment: item.comment ?? '',
+    date:
+      item.date ??
+      item.createdAt ??
+      item.created_at ??
+      new Date().toISOString(),
     resolved:
       typeof item.resolved === 'boolean'
         ? item.resolved
         : String(item.status || '').toLowerCase() === 'resolved',
-    // Keep passthrough fields if present
-    orderNumber: item.orderNumber || null,
-    category: item.category || null,
-    email: item.email || null,
+    orderNumber: item.orderNumber ?? item.order_number ?? null,
+    category: item.category ?? null,
+    email: item.email ?? null,
+    metadata: item.metadata ?? {},
+    resolvedAt: item.resolvedAt ?? item.resolved_at ?? null,
+    resolvedBy: item.resolvedBy ?? item.resolved_by ?? null,
+    resolvedByName: item.resolvedByName ?? item.resolved_by_name ?? '',
+    submittedBy: item.submittedBy ?? item.submitted_by ?? null,
   };
 }
 
-// In-memory store so resolve/update/create are reflected in UI
-let FEEDBACK_MEM = Array.isArray(mockFeedback)
-  ? mockFeedback.map(normalize)
-  : [];
-
 class FeedbackService {
   async getFeedback() {
-    await mockDelay(200);
-    return FEEDBACK_MEM.map((x) => ({ ...x }));
+    const res = await apiClient.get('/feedback/?limit=200');
+    if (res?.success) {
+      const list = Array.isArray(res.data) ? res.data : [];
+      return list.map((item) => normalize(item));
+    }
+    throw new Error(res?.message || 'Failed to fetch feedback');
   }
 
-  async markFeedbackResolved(id) {
-    await mockDelay(150);
-    const idx = FEEDBACK_MEM.findIndex((f) => String(f.id) === String(id));
-    if (idx === -1) throw new Error('Feedback not found');
-    const updated = {
-      ...FEEDBACK_MEM[idx],
-      resolved: !FEEDBACK_MEM[idx].resolved,
-    };
-    FEEDBACK_MEM[idx] = updated;
-    return { ...updated };
+  async markFeedbackResolved(id, force = null) {
+    const payload =
+      force === null || typeof force === 'undefined' ? {} : { resolved: !!force };
+    const res = await apiClient.post(
+      `/feedback/${encodeURIComponent(id)}/resolve/`,
+      payload
+    );
+    if (res?.success) {
+      return normalize(res.data);
+    }
+    throw new Error(res?.message || 'Failed to update feedback status');
   }
 
   async updateFeedback(id, updates) {
-    await mockDelay(150);
-    const idx = FEEDBACK_MEM.findIndex((f) => String(f.id) === String(id));
-    if (idx === -1) throw new Error('Feedback not found');
-    const merged = normalize({ ...FEEDBACK_MEM[idx], ...updates });
-    FEEDBACK_MEM[idx] = merged;
-    return { ...merged };
+    const res = await apiClient.patch(
+      `/feedback/${encodeURIComponent(id)}/`,
+      updates
+    );
+    if (res?.success) {
+      return normalize(res.data);
+    }
+    throw new Error(res?.message || 'Failed to update feedback');
   }
 
   async createFeedback(feedbackData) {
-    await mockDelay(200);
-    const item = normalize({
-      id: Date.now().toString(),
-      customerName: feedbackData.customerName || 'Anonymous',
-      rating: Number(feedbackData.rating || 0),
-      comment: feedbackData.comment || '',
-      createdAt: new Date().toISOString(),
-      status: 'new',
-      email: feedbackData.email || null,
-      orderNumber: feedbackData.orderNumber || null,
-      category: feedbackData.category || null,
-    });
-    FEEDBACK_MEM.push(item);
-    return { ...item };
+    const res = await apiClient.post('/feedback/', feedbackData);
+    if (res?.success) {
+      return normalize(res.data);
+    }
+    throw new Error(res?.message || 'Failed to create feedback');
   }
 
   async getSummary() {
-    await mockDelay(150);
-    const list = FEEDBACK_MEM;
-    const count = list.length;
-    const avg =
-      count > 0
-        ? list.reduce((s, f) => s + (Number(f.rating) || 0), 0) / count
-        : 0;
-    return { success: true, data: { average: Number(avg.toFixed(2)), count } };
+    const res = await apiClient.get('/feedback/summary/');
+    if (res?.success) {
+      return res.data;
+    }
+    throw new Error(res?.message || 'Failed to load feedback summary');
   }
 }
 

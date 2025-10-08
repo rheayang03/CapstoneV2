@@ -19,7 +19,12 @@ class Command(BaseCommand):
             try:
                 with transaction.atomic():
                     from api.utils_notify import send_webpush_to_user
-                    ok = send_webpush_to_user(e.user, title=e.title, message=e.message, data={"url": "/notifications"})
+                    payload = e.payload if isinstance(e.payload, dict) else {}
+                    if "url" not in payload:
+                        payload["url"] = "/notifications"
+                    if e.category and "category" not in payload:
+                        payload["category"] = e.category
+                    ok = send_webpush_to_user(e.user, title=e.title, message=e.message, data=payload)
                     e.attempts = (e.attempts or 0) + 1
                     e.status = NotificationOutbox.STATUS_SENT if ok else NotificationOutbox.STATUS_FAILED
                     e.last_error = "" if ok else "send failed"

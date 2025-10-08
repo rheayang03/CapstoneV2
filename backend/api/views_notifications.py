@@ -10,29 +10,54 @@ from django.utils import timezone as dj_timezone
 from django.db.utils import OperationalError, ProgrammingError
 
 from .views_common import _actor_from_request, _has_permission, rate_limit
+from .utils_notify import create_notification
 
 
 NOTIFS_MEM = []
 
 
 def _serialize_db(n):
+    meta = {}
+    try:
+        raw_meta = getattr(n, "meta", None)
+        if isinstance(raw_meta, dict):
+            meta = raw_meta
+    except Exception:
+        meta = {}
+    topic_val = meta.get("topic") if isinstance(meta.get("topic"), str) else ""
+    payload = meta.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
     return {
         "id": str(n.id),
         "title": n.title,
         "message": n.message or "",
         "type": n.type or "info",
         "read": bool(n.read),
+        "topic": topic_val,
+        "meta": meta,
+        "payload": payload,
         "createdAt": (n.created_at or dj_timezone.now()).isoformat(),
     }
 
 
 def _serialize_mem(e):
+    meta = e.get("meta") or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    payload = meta.get("payload") if isinstance(meta.get("payload"), dict) else {}
+    if not payload:
+        payload = e.get("payload") if isinstance(e.get("payload"), dict) else {}
+    topic_val = meta.get("topic") if isinstance(meta.get("topic"), str) else e.get("topic") or ""
     return {
         "id": str(e.get("id")),
         "title": e.get("title") or "Notification",
         "message": e.get("message") or "",
         "type": e.get("type") or "info",
         "read": bool(e.get("read")),
+        "topic": topic_val,
+        "meta": meta if meta else {},
+        "payload": payload,
         "createdAt": e.get("createdAt") or dj_timezone.now().isoformat(),
     }
 
@@ -93,6 +118,28 @@ def notifications(request):
     message = (data.get("message") or "").strip()
     ntype = (data.get("type") or "info").lower()
     user_id = str(data.get("userId") or "").strip()
+    topic = (data.get("topic") or "").strip().lower()
+    meta = data.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+    payload = data.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+
+    def _parse_bool(val):
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            v = val.strip().lower()
+            if v in {"1", "true", "yes", "on"}:
+                return True
+            if v in {"0", "false", "no", "off"}:
+                return False
+        return None
+
+    push_pref = _parse_bool(data.get("push"))
 
     # Resolve recipient
     recip = None
@@ -106,30 +153,46 @@ def notifications(request):
         recip = None
 
     try:
-        from .models import Notification, NotificationPreference
         if not recip:
             return JsonResponse({"success": False, "message": "Recipient not found"}, status=400)
-        # Always store the record
-        n = Notification.objects.create(user=recip, title=title, message=message, type=ntype)
-        # Optional push send according to preferences
-        # Enqueue outbox for push delivery (processed by worker/command)
-        try:
-            pref, _ = NotificationPreference.objects.get_or_create(user=recip)
-        except Exception:
-            pref = None
-        try:
-            if pref is None or getattr(pref, "push_enabled", False):
-                from .models import NotificationOutbox
-                NotificationOutbox.objects.create(user=recip, title=title, message=message)
-        except Exception:
-            pass
+        merged_meta = {}
+        merged_meta.update(meta or {})
+        if topic or "topic" not in merged_meta:
+            merged_meta["topic"] = topic
+        if payload:
+            merged_meta["payload"] = payload
+        n = create_notification(
+            recip,
+            title=title,
+            message=message,
+            notif_type=ntype,
+            meta=merged_meta,
+            topic=topic,
+            payload=payload,
+            push=push_pref,
+        )
         return JsonResponse({"success": True, "data": _serialize_db(n)})
     except Exception:
         pass
 
     # Memory fallback
     from uuid import uuid4
-    e = {"id": uuid4().hex, "title": title, "message": message, "type": ntype, "read": False, "createdAt": dj_timezone.now().isoformat()}
+    mem_meta = dict(meta or {})
+    if topic or "topic" not in mem_meta:
+        mem_meta["topic"] = topic
+    if payload:
+        mem_meta["payload"] = payload
+    e = {
+        "id": uuid4().hex,
+        "title": title,
+        "message": message,
+        "type": ntype,
+        "read": False,
+        "topic": topic,
+        "meta": mem_meta,
+        "payload": payload,
+        "createdAt": dj_timezone.now().isoformat(),
+    }
     NOTIFS_MEM.append(e)
     return JsonResponse({"success": True, "data": _serialize_mem(e)})
 

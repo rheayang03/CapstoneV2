@@ -7,10 +7,11 @@ from . import (
     views_users as user_views,
     views_face as face_views,
     views_logs as logs_views,
-    views_notifications as notif_views,
+    views_notifications as notif,  # Use 'notif' alias for all notifications
     views_payments as pay_views,
     views_employees as emp_views,
     views_attendance as att_views,
+    views_feedback as feedback_views,
     views_inventory as inv_views,
     views_orders as order_views,
     views_reports as rpt_views,
@@ -18,6 +19,7 @@ from . import (
     views_diag as diag_views,
     views_analytics as analytics_views,
     views_catering as catering_views,
+    views_dashboard as dashboard_views,
 )
 
 urlpatterns = [
@@ -84,15 +86,21 @@ urlpatterns = [
     path("logs/summary", logs_views.logs_summary, name="logs_summary"),
     path("logs/alerts", logs_views.logs_alerts, name="logs_alerts"),
 
-    # Notifications
-    path("notifications", notif_views.notifications, name="notifications"),
-    path("notifications/mark-all-read", notif_views.notifications_mark_all, name="notifications_mark_all"),
-    path("notifications/settings", notif_views.notifications_settings, name="notifications_settings"),
-    path("notifications/<str:notif_id>/read", notif_views.notification_read, name="notification_read"),
-    path("notifications/<str:notif_id>", notif_views.notification_delete, name="notification_delete"),
-    path("notifications/push/public-key", notif_views.notifications_push_public_key, name="notifications_push_public_key"),
-    path("notifications/push/subscribe", notif_views.notifications_push_subscribe, name="notifications_push_subscribe"),
-    path("notifications/push/unsubscribe", notif_views.notifications_push_unsubscribe, name="notifications_push_unsubscribe"),
+    # Notifications (corrected)
+    path("notifications/", notif.notifications, name="notifications_list_create"),
+    path("notifications/mark-all/", notif.notifications_mark_all, name="notifications_mark_all"),
+    path("notifications/<str:notif_id>/read/", notif.notification_read, name="notification_read"),
+    path("notifications/<str:notif_id>/delete/", notif.notification_delete, name="notification_delete"),
+    path("notifications/settings/", notif.notifications_settings, name="notifications_settings"),
+    path("notifications/push/public-key/", notif.notifications_push_public_key, name="notifications_push_public_key"),
+    path("notifications/push/subscribe/", notif.notifications_push_subscribe, name="notifications_push_subscribe"),
+    path("notifications/push/unsubscribe/", notif.notifications_push_unsubscribe, name="notifications_push_unsubscribe"),
+
+    # Customer Feedback
+    path("feedback/", feedback_views.feedback, name="feedback_list_create"),
+    path("feedback/summary/", feedback_views.feedback_summary, name="feedback_summary"),
+    path("feedback/<uuid:feedback_id>/", feedback_views.feedback_detail, name="feedback_detail"),
+    path("feedback/<uuid:feedback_id>/resolve/", feedback_views.feedback_resolve, name="feedback_resolve"),
 
     # Catering
     path("catering/events", catering_views.catering_events, name="catering_events"),
@@ -100,8 +108,6 @@ urlpatterns = [
     path("catering/events/<uuid:event_id>", catering_views.catering_event_detail, name="catering_event_detail"),
     path("catering/events/<uuid:event_id>/menu", catering_views.catering_event_menu, name="catering_event_menu"),
     path("api/catering/", include("api.urls_catering")),
-
-
 
     # Payments
     path("payments", pay_views.payments_list, name="payments_list"),
@@ -132,7 +138,6 @@ urlpatterns = [
 
     # Inventory
     path("inventory/items", inv_views.inventory_items, name="inventory_items"),
-    path("inventory/items/<uuid:iid>", inv_views.inventory_item_detail, name="inventory_item_detail"),
     path("inventory/items/<uuid:iid>/stock", inv_views.inventory_item_stock, name="inventory_item_stock"),
     path("inventory/low-stock", inv_views.inventory_low_stock, name="inventory_low_stock"),
     path("inventory/activities", inv_views.inventory_activities, name="inventory_activities"),
@@ -161,6 +166,9 @@ urlpatterns = [
     path("analytics/customers", analytics_views.analytics_customers, name="analytics_customers"),
     path("analytics/events", analytics_views.analytics_events, name="analytics_events"),
     path("analytics/snapshots", analytics_views.analytics_snapshots, name="analytics_snapshots"),
+
+    # Dashboard
+    path("dashboard/stats", dashboard_views.dashboard_stats, name="dashboard_stats"),
 
     # Cash handling
     path("cash/open", cash_views.cash_open, name="cash_open"),

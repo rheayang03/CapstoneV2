@@ -1,152 +1,117 @@
-import { mockNotifications } from '../mockData';
-import apiClient from '../client';
-
-// Mock delay for realistic API simulation
-const mockDelay = (ms = 500) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+import apiClient from '../client'; // Axios instance with baseURL + token headers
 
 class NotificationsService {
-  async list(limit = 50) {
-    try {
-      const params = new URLSearchParams();
-      params.set('limit', String(limit));
-      const res = await apiClient.get(`/notifications?${params.toString()}`);
-      if (res && res.success) return res;
-      throw new Error('Unexpected response');
-    } catch (err) {
-      await mockDelay(250);
-      const list = (mockNotifications || []).slice(0, limit).map((n) => ({
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        createdAt: n.createdAt,
-        type: n.type,
-        read: Boolean(n.isRead || n.read),
-      }));
-      return { success: true, data: list };
-    }
+  /**
+   * Fetch all notifications for the logged-in user
+  */
+  async list(limit = 50, page = 1) {
+    const params = new URLSearchParams({ limit, page });
+    const res = await apiClient.get(`/notifications/?${params.toString()}`);
+    if (res?.success) return res;
+    throw new Error('Failed to fetch notifications');
   }
+
+  /**
+   * Fetch unread notification count
+   */
   async getUnreadCount() {
-    await mockDelay(200);
-    const count = (mockNotifications || []).filter(
-      (n) => !n.isRead && !n.read
-    ).length;
-    return { success: true, data: { unreadCount: count } };
+    const res = await apiClient.get('/notifications/?limit=100');
+    if (res?.success) {
+      const unreadCount = (Array.isArray(res.data) ? res.data : []).filter(
+        (n) => !n.read
+      ).length;
+      return { success: true, data: { unreadCount } };
+    }
+    throw new Error('Failed to get unread count');
   }
 
+  /**
+   * Get recent notifications (default: last 5)
+   */
   async getRecent(limit = 5) {
-    try {
-      const params = new URLSearchParams();
-      params.set('limit', String(limit));
-      const res = await apiClient.get(`/notifications?${params.toString()}`);
-      if (res && res.success) return res;
-      throw new Error('Unexpected response');
-    } catch (err) {
-      await mockDelay(300);
-      const list = (mockNotifications || []).slice(0, limit).map((n) => ({
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        createdAt: n.createdAt,
-        type: n.type,
-        read: Boolean(n.isRead || n.read),
-      }));
-      return { success: true, data: list };
+    const params = new URLSearchParams({ limit });
+    const res = await apiClient.get(`/notifications/?${params.toString()}`);
+    if (res?.success) {
+      const items = Array.isArray(res.data) ? res.data : [];
+      return { success: true, data: items.slice(0, limit) };
     }
+    throw new Error('Failed to fetch recent notifications');
   }
 
+  /**
+   * Fetch user notification preferences
+   */
   async getSettings() {
-    try {
-      const res = await apiClient.get('/notifications/settings');
-      if (res && res.success) return res.data;
-      throw new Error('Unexpected response');
-    } catch {
-      await mockDelay(150);
-      return {
-        emailEnabled: true,
-        pushEnabled: false,
-        lowStock: true,
-        order: true,
-        payment: true,
-      };
-    }
+    const res = await apiClient.get('/notifications/settings/');
+    if (res?.success) return res.data;
+    throw new Error('Failed to load notification settings');
   }
 
+  /**
+   * Update user notification preferences
+   */
   async updateSettings(payload = {}) {
-    try {
-      const res = await apiClient.put('/notifications/settings', payload);
-      if (res && res.success) return true;
-      throw new Error('Unexpected response');
-    } catch {
-      await mockDelay(150);
-      return true;
-    }
+    const res = await apiClient.put('/notifications/settings/', payload);
+    if (res?.success) return true;
+    throw new Error('Failed to update settings');
   }
 
+  /**
+   * Get the public VAPID key for push subscriptions
+   */
   async getVapidPublicKey() {
-    try {
-      const res = await apiClient.get('/notifications/push/public-key');
-      return (res && res.data) || res || {};
-    } catch {
-      return {};
-    }
+    const res = await apiClient.get('/notifications/push/public-key/');
+    if (res?.success) return res.data || {};
+    return {};
   }
 
+  /**
+   * Subscribe device/browser for push notifications
+   */
   async subscribePush(subscription) {
-    try {
-      return await apiClient.post(
-        '/notifications/push/subscribe',
-        subscription
-      );
-    } catch {
-      return { success: true };
-    }
+    const res = await apiClient.post('/notifications/push/subscribe/', subscription);
+    return res || { success: false };
   }
 
+  /**
+   * Unsubscribe from push notifications
+   */
   async unsubscribePush(subscription) {
-    try {
-      return await apiClient.post(
-        '/notifications/push/unsubscribe',
-        subscription
-      );
-    } catch {
-      return { success: true };
-    }
+    const res = await apiClient.post('/notifications/push/unsubscribe/', subscription);
+    return res || { success: false };
   }
 
+  /**
+   * Mark a specific notification as read
+   */
   async markRead(id) {
-    try {
-      const res = await apiClient.post(
-        `/notifications/${encodeURIComponent(id)}/read`,
-        {}
-      );
-      return res || { success: true };
-    } catch {
-      await mockDelay(120);
-      return { success: true };
-    }
+    const res = await apiClient.post(`/notifications/${encodeURIComponent(id)}/read/`, {});
+    return res || { success: false };
   }
 
+  /**
+   * Mark all notifications as read
+   */
   async markAllRead() {
-    try {
-      const res = await apiClient.post(`/notifications/mark-all-read`, {});
-      return res || { success: true };
-    } catch {
-      await mockDelay(150);
-      return { success: true };
-    }
+    const res = await apiClient.post('/notifications/mark-all/', {});
+    return res || { success: false };
   }
 
+  /**
+   * Delete a specific notification
+   */
   async delete(id) {
-    try {
-      const res = await apiClient.delete(
-        `/notifications/${encodeURIComponent(id)}`
-      );
-      return res || { success: true };
-    } catch {
-      await mockDelay(120);
-      return { success: true };
-    }
+    const res = await apiClient.delete(`/notifications/${encodeURIComponent(id)}/delete/`);
+    return res || { success: false };
+  }
+
+  /**
+   * Create (send) a notification manually (admin/system feature)
+   */
+  async create(payload = {}) {
+    const res = await apiClient.post('/notifications/', payload);
+    if (res?.success) return res.data || res;
+    throw new Error('Failed to create notification');
   }
 }
 

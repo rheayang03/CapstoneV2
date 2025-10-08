@@ -76,7 +76,7 @@ export const useFeedback = () => {
   const createFeedback = async (feedbackData) => {
     try {
       const newFeedback = await feedbackService.createFeedback(feedbackData);
-      setFeedback((prev) => [...prev, newFeedback]);
+      setFeedback((prev) => [newFeedback, ...prev]);
       toast.success('Feedback created successfully');
       return newFeedback;
     } catch (err) {

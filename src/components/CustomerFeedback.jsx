@@ -13,9 +13,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { FeedbackMetrics } from './feedback/FeedbackMetrics';
 import { FeedbackList } from './feedback/FeedbackList';
+import { FeedbackForm } from './feedback/FeedbackForm';
 
 const CustomerFeedback = () => {
-  const { feedback, loading, error, markResolved, refetch } = useFeedback();
+  const { feedback, loading, error, markResolved, createFeedback, refetch } =
+    useFeedback();
   const [activeTab, setActiveTab] = useState('all');
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState('');
@@ -23,9 +25,7 @@ const CustomerFeedback = () => {
 
   const forceResolve = async (id) => {
     try {
-      const updated = await markResolved(id, true); 
-      toast.success('Feedback marked as resolved');
-      return updated;
+      return await markResolved(id, true); 
     } catch {
       toast.error('Failed to mark as resolved');
     }
@@ -33,10 +33,7 @@ const CustomerFeedback = () => {
 
   const handleResolve = async (id) => {
     try {
-      const updated = await markResolved(id);
-      toast.success(
-        `Feedback marked as ${updated.resolved ? 'resolved' : 'unresolved'}`
-      );
+      await markResolved(id);
     } catch {}
   };
 
@@ -56,6 +53,18 @@ const CustomerFeedback = () => {
     setReplyingId(null);
 
     await forceResolve(id);
+  };
+
+  const handleCreateFeedback = async (values) => {
+    try {
+      await createFeedback(values);
+      toast.success('Feedback logged');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to log feedback';
+      toast.error(message);
+      throw err;
+    }
   };
 
   const filteredFeedback =
@@ -101,6 +110,8 @@ const CustomerFeedback = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-3xl font-bold">Customer Feedback</h2>
+
+      <FeedbackForm onSubmit={handleCreateFeedback} />
 
       <FeedbackMetrics feedback={feedback || []} />
 

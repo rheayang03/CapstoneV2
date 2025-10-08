@@ -231,6 +231,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "notification.send",
         "notification.receive",
         "notification.view",
+        # Customer Feedback
+        "feedback.submit",
+        "feedback.view",
+        "feedback.manage",
         # Menu management (alias for clarity in endpoints)
         "menu.manage",
         # Employee directory management
@@ -267,6 +271,9 @@ DEFAULT_ROLE_PERMISSIONS = {
         "notification.send",
         "notification.receive",
         "notification.view",
+        # Customer Feedback
+        "feedback.submit",
+        "feedback.view",
     },
 }
 
