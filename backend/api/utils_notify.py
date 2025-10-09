@@ -89,9 +89,10 @@ def create_notification(
     if should_push and not _should_send_for_topic(pref, topic_value):
         should_push = False
 
+    outbox_entry = None
     if should_push:
         try:
-            NotificationOutbox.objects.create(
+            outbox_entry = NotificationOutbox.objects.create(
                 user=user,
                 title=title or "Notification",
                 message=message or "",
@@ -101,6 +102,32 @@ def create_notification(
             )
         except Exception as exc:
             _debug_log(f"Failed to enqueue push notification: {exc}")
+            outbox_entry = None
+
+        if outbox_entry is not None:
+            try:
+                delivered = send_webpush_to_user(
+                    user,
+                    title=title or "Notification",
+                    message=message or "",
+                    data=payload if isinstance(payload, dict) else {},
+                )
+            except Exception as exc:
+                delivered = False
+                _debug_log(f"Immediate webpush send failed: {exc}")
+            try:
+                outbox_entry.attempts = (outbox_entry.attempts or 0) + 1
+                if delivered:
+                    outbox_entry.status = NotificationOutbox.STATUS_SENT
+                    outbox_entry.last_error = ""
+                else:
+                    # Keep entry pending for background retry, but note failure
+                    outbox_entry.status = NotificationOutbox.STATUS_PENDING
+                    if not outbox_entry.last_error:
+                        outbox_entry.last_error = "initial send failed"
+                outbox_entry.save(update_fields=["status", "attempts", "last_error", "updated_at"])
+            except Exception as exc:
+                _debug_log(f"Failed to update outbox entry: {exc}")
 
     return notification
 

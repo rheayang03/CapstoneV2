@@ -48,6 +48,7 @@ const Dashboard = () => {
         <StatsCard
           title="Today's Sales"
           value={stats?.dailySales || 0}
+          previousValue={stats?.previousDailySales ?? null}
           icon={DollarSign}
           formatter={(value) =>
             new Intl.NumberFormat('en-PH', {
@@ -59,6 +60,7 @@ const Dashboard = () => {
         <StatsCard
           title="Monthly Sales"
           value={stats?.monthlySales || 0}
+          previousValue={stats?.previousMonthlySales ?? null}
           icon={TrendingUp}
           formatter={(value) =>
             new Intl.NumberFormat('en-PH', {
@@ -70,6 +72,7 @@ const Dashboard = () => {
         <StatsCard
           title="Orders Today"
           value={stats?.orderCount ?? (stats?.recentSales?.length || 0)}
+          previousValue={stats?.previousOrderCount ?? null}
           icon={ShoppingBag}
         />
         {isVerifier ? (

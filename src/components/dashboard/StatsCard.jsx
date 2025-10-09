@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
 const StatsCard = ({
   title,
@@ -13,12 +13,46 @@ const StatsCard = ({
   const clickable = typeof onClick === 'function';
 
   // Calculate change percentage
+  const current = typeof value === 'number' ? value : Number(value);
+  const previous =
+    typeof previousValue === 'number' ? previousValue : Number(previousValue);
+  const hasComparable =
+    Number.isFinite(current) && Number.isFinite(previous);
+
   let changePercentage = null;
-  let isIncrease = null;
-  if (typeof previousValue === 'number' && previousValue !== 0) {
-    changePercentage = ((value - previousValue) / previousValue) * 100;
-    isIncrease = value >= previousValue;
+  let trend = null; // 'up' | 'down' | 'equal'
+
+  if (hasComparable) {
+    if (previous === 0) {
+      if (current === 0) {
+        changePercentage = 0;
+        trend = 'equal';
+      } else {
+        changePercentage = 100;
+        trend = 'up';
+      }
+    } else {
+      changePercentage = ((current - previous) / Math.abs(previous)) * 100;
+      if (Math.abs(current - previous) < 0.0001) {
+        changePercentage = 0;
+        trend = 'equal';
+      } else if (current > previous) {
+        trend = 'up';
+      } else {
+        trend = 'down';
+      }
+    }
   }
+
+  const TrendIcon =
+    trend === 'up' ? ArrowUpRight : trend === 'down' ? ArrowDownRight : Minus;
+
+  const trendColor =
+    trend === 'up'
+      ? 'text-green-600'
+      : trend === 'down'
+        ? 'text-red-600'
+        : 'text-slate-500';
 
   return (
     <Card
@@ -42,15 +76,11 @@ const StatsCard = ({
       </CardHeader>
       <CardContent className="pt-0">
         <div className="text-xl font-bold">{formatter(value)}</div>
-        {changePercentage !== null && (
+        {trend && changePercentage !== null && (
           <p className="text-[11px] flex items-center space-x-1 text-muted-foreground">
-            {isIncrease ? (
-              <ArrowUp className="h-3 w-3 text-green-600" />
-            ) : (
-              <ArrowDown className="h-3 w-3 text-red-600" />
-            )}
-            <span className={isIncrease ? 'text-green-600' : 'text-red-600'}>
-              {changePercentage.toFixed(1)}%
+            <TrendIcon className={`h-3 w-3 ${trendColor}`} />
+            <span className={trendColor}>
+              {`${trend === 'down' ? '-' : ''}${Math.abs(changePercentage).toFixed(1)}%`}
             </span>
             <span className="text-muted-foreground">from previous</span>
           </p>

@@ -7,7 +7,13 @@ class NotificationsService {
   async list(limit = 50, page = 1) {
     const params = new URLSearchParams({ limit, page });
     const res = await apiClient.get(`/notifications/?${params.toString()}`);
-    if (res?.success) return res;
+    if (res?.success) {
+      return {
+        success: true,
+        data: Array.isArray(res.data) ? res.data : [],
+        pagination: res.pagination || null,
+      };
+    }
     throw new Error('Failed to fetch notifications');
   }
 
@@ -29,13 +35,7 @@ class NotificationsService {
    * Get recent notifications (default: last 5)
    */
   async getRecent(limit = 5) {
-    const params = new URLSearchParams({ limit });
-    const res = await apiClient.get(`/notifications/?${params.toString()}`);
-    if (res?.success) {
-      const items = Array.isArray(res.data) ? res.data : [];
-      return { success: true, data: items.slice(0, limit) };
-    }
-    throw new Error('Failed to fetch recent notifications');
+    return this.list(limit, 1);
   }
 
   /**
@@ -52,7 +52,7 @@ class NotificationsService {
    */
   async updateSettings(payload = {}) {
     const res = await apiClient.put('/notifications/settings/', payload);
-    if (res?.success) return true;
+    if (res?.success) return res.data || payload;
     throw new Error('Failed to update settings');
   }
 
@@ -70,7 +70,8 @@ class NotificationsService {
    */
   async subscribePush(subscription) {
     const res = await apiClient.post('/notifications/push/subscribe/', subscription);
-    return res || { success: false };
+    if (res?.success) return res.data || { pushEnabled: true };
+    return { success: false };
   }
 
   /**
@@ -78,7 +79,8 @@ class NotificationsService {
    */
   async unsubscribePush(subscription) {
     const res = await apiClient.post('/notifications/push/unsubscribe/', subscription);
-    return res || { success: false };
+    if (res?.success) return res.data || { pushEnabled: false };
+    return { success: false };
   }
 
   /**

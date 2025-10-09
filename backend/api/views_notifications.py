@@ -272,18 +272,19 @@ def notifications_settings(request):
         return err
     try:
         from .models import NotificationPreference
+
+        def _serialize_pref(p):
+            return {
+                "emailEnabled": bool(p.email_enabled),
+                "pushEnabled": bool(p.push_enabled),
+                "lowStock": bool(p.low_stock),
+                "order": bool(p.order),
+                "payment": bool(p.payment),
+            }
+
         pref, _ = NotificationPreference.objects.get_or_create(user=actor)
         if request.method == "GET":
-            return JsonResponse({
-                "success": True,
-                "data": {
-                    "emailEnabled": bool(pref.email_enabled),
-                    "pushEnabled": bool(pref.push_enabled),
-                    "lowStock": bool(pref.low_stock),
-                    "order": bool(pref.order),
-                    "payment": bool(pref.payment),
-                },
-            })
+            return JsonResponse({"success": True, "data": _serialize_pref(pref)})
         # PUT: update
         try:
             data = json.loads(request.body.decode("utf-8") or "{}")
@@ -305,8 +306,8 @@ def notifications_settings(request):
         pref.low_stock = _getb("lowStock", pref.low_stock)
         pref.order = _getb("order", pref.order)
         pref.payment = _getb("payment", pref.payment)
-        pref.save()
-        return JsonResponse({"success": True})
+        pref.save(update_fields=["email_enabled", "push_enabled", "low_stock", "order", "payment", "updated_at"])
+        return JsonResponse({"success": True, "data": _serialize_pref(pref)})
     except (OperationalError, ProgrammingError):
         pass
     # Memory fallback: store in NOTIFS_MEM as a single dict keyed by actor
@@ -322,10 +323,12 @@ def notifications_settings(request):
     except Exception:
         data = {}
     if curr:
-        curr["data"] = {**curr.get("data", {}), **data}
+        curr_data = {**curr.get("data", {}), **data}
+        curr["data"] = curr_data
     else:
-        NOTIFS_MEM.append({"id": key, "data": data})
-    return JsonResponse({"success": True})
+        curr_data = data
+        NOTIFS_MEM.append({"id": key, "data": curr_data})
+    return JsonResponse({"success": True, "data": curr_data})
 
 
 @require_http_methods(["GET"])  # return VAPID public key if configured
@@ -366,7 +369,7 @@ def notifications_push_subscribe(request):
         exp = None
     ua = request.META.get("HTTP_USER_AGENT", "")[:255]
     try:
-        from .models import WebPushSubscription
+        from .models import WebPushSubscription, NotificationPreference
         sub = WebPushSubscription.objects.filter(endpoint=endpoint).first()
         if sub:
             sub.user = actor
@@ -386,10 +389,12 @@ def notifications_push_subscribe(request):
                 user_agent=ua,
                 active=True,
             )
-        return JsonResponse({"success": True})
+        NotificationPreference.objects.get_or_create(user=actor, defaults={"push_enabled": True})
+        NotificationPreference.objects.filter(user=actor).update(push_enabled=True)
+        return JsonResponse({"success": True, "data": {"pushEnabled": True}})
     except (OperationalError, ProgrammingError):
         pass
-    return JsonResponse({"success": True})
+    return JsonResponse({"success": True, "data": {"pushEnabled": True}})
 
 
 @require_http_methods(["DELETE", "POST"])  # unsubscribe (accepts either verb)
@@ -405,12 +410,15 @@ def notifications_push_unsubscribe(request):
     if not endpoint:
         return JsonResponse({"success": False, "message": "Missing endpoint"}, status=400)
     try:
-        from .models import WebPushSubscription
+        from .models import WebPushSubscription, NotificationPreference
         sub = WebPushSubscription.objects.filter(endpoint=endpoint, user=actor).first()
         if sub:
             sub.active = False
             sub.save(update_fields=["active", "updated_at"])
-        return JsonResponse({"success": True})
+        remaining = WebPushSubscription.objects.filter(user=actor, active=True).exists()
+        if not remaining:
+            NotificationPreference.objects.filter(user=actor).update(push_enabled=False)
+        return JsonResponse({"success": True, "data": {"pushEnabled": remaining}})
     except (OperationalError, ProgrammingError):
         pass
-    return JsonResponse({"success": True})
+    return JsonResponse({"success": True, "data": {"pushEnabled": False}})

@@ -89,6 +89,22 @@ def dashboard_stats(request):
     daily_sales = completed_payments.filter(created_at__gte=today_start).aggregate(total=Sum("amount"))["total"]
     monthly_sales = completed_payments.filter(created_at__gte=month_start).aggregate(total=Sum("amount"))["total"]
 
+    prev_day_start = today_start - timedelta(days=1)
+    prev_day_end = today_start
+    prev_month_end = month_start
+    prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
+
+    prev_daily_sales = (
+        completed_payments.filter(created_at__gte=prev_day_start, created_at__lt=prev_day_end).aggregate(total=Sum("amount"))[
+            "total"
+        ]
+    )
+    prev_monthly_sales = (
+        completed_payments.filter(created_at__gte=prev_month_start, created_at__lt=prev_month_end).aggregate(total=Sum("amount"))[
+            "total"
+        ]
+    )
+
     range_payments = completed_payments.filter(created_at__gte=range_start, created_at__lte=range_end)
 
     hourly_rows = (
@@ -139,6 +155,9 @@ def dashboard_stats(request):
 
     orders_qs = Order.objects.filter(created_at__gte=range_start, created_at__lte=range_end)
     order_count = orders_qs.count()
+    prev_order_count = (
+        Order.objects.filter(created_at__gte=prev_day_start, created_at__lt=prev_day_end).count()
+    )
     customer_count = (
         orders_qs.exclude(customer_name__isnull=True)
         .exclude(customer_name__exact="")
@@ -147,27 +166,58 @@ def dashboard_stats(request):
         .count()
     )
 
-    recent_orders = (
-        Order.objects.filter(status__in=[Order.STATUS_COMPLETED, Order.STATUS_READY])
-        .order_by("-created_at")
-        .only("id", "order_number", "total_amount", "payment_method", "created_at", "status")[:10]
+    recent_sales = []
+    payment_qs = list(
+        PaymentTransaction.objects.filter(status=PaymentTransaction.STATUS_COMPLETED)
+        .order_by("-created_at")[:10]
     )
-    recent_sales = [
-        {
-            "id": str(order.id),
-            "orderNumber": order.order_number,
-            "total": _decimal_to_float(order.total_amount),
-            "paymentMethod": order.payment_method or "",
-            "date": order.created_at.isoformat() if order.created_at else None,
-            "status": order.status,
+    if payment_qs:
+        order_numbers = [p.order_id for p in payment_qs if p.order_id]
+        related_orders = {
+            o.order_number: o
+            for o in Order.objects.filter(order_number__in=order_numbers).only(
+                "id", "order_number", "status", "created_at", "total_amount", "payment_method"
+            )
         }
-        for order in recent_orders
-    ]
+        for payment in payment_qs:
+            order = related_orders.get(payment.order_id)
+            recent_sales.append(
+                {
+                    "id": str(order.id) if order else payment.order_id,
+                    "orderNumber": order.order_number if order else payment.order_id,
+                    "total": _decimal_to_float(payment.amount),
+                    "paymentMethod": payment.method,
+                    "date": payment.created_at.isoformat() if payment.created_at else None,
+                    "status": order.status if order else None,
+                }
+            )
+    if len(recent_sales) < 10:
+        remaining = 10 - len(recent_sales)
+        fallback_orders = (
+            Order.objects.filter(status__in=[Order.STATUS_COMPLETED, Order.STATUS_READY])
+            .exclude(order_number__in={sale["orderNumber"] for sale in recent_sales if sale.get("orderNumber")})
+            .order_by("-created_at")
+            .only("id", "order_number", "total_amount", "payment_method", "created_at", "status")[:remaining]
+        )
+        for order in fallback_orders:
+            recent_sales.append(
+                {
+                    "id": str(order.id),
+                    "orderNumber": order.order_number,
+                    "total": _decimal_to_float(order.total_amount),
+                    "paymentMethod": order.payment_method or "",
+                    "date": order.created_at.isoformat() if order.created_at else None,
+                    "status": order.status,
+                }
+            )
 
     payload = {
         "dailySales": _decimal_to_float(daily_sales),
         "monthlySales": _decimal_to_float(monthly_sales),
         "orderCount": int(order_count),
+        "previousDailySales": _decimal_to_float(prev_daily_sales),
+        "previousMonthlySales": _decimal_to_float(prev_monthly_sales),
+        "previousOrderCount": int(prev_order_count),
         "customerCount": int(customer_count or 0),
         "salesByTime": sales_by_time,
         "salesByCategory": sales_by_category,

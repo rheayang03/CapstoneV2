@@ -7,8 +7,13 @@ import {
   CardTitle
 } from '@/components/ui/card';
 
-const PopularItems = ({ items }) => {
-  const maxCount = Math.max(...items.map(item => item.count));
+const PopularItems = ({ items = [] }) => {
+  const list = Array.isArray(items) ? items : [];
+  const maxCount = list.length
+    ? Math.max(...list.map((item) => Number(item.count) || 0))
+    : 0;
+  const labelForCount = (count) =>
+    `${count} ${count === 1 ? 'order' : 'orders'}`;
 
   return (
     <Card className="w-full">
@@ -20,7 +25,7 @@ const PopularItems = ({ items }) => {
       </CardHeader>
       <CardContent className="pt-2 max-h-80 overflow-y-auto overflow-x-hidden">
         <div className="space-y-3 w-full">
-          {items.map((item, index) => (
+          {list.map((item, index) => (
             <div
               key={index}
               className="flex items-center px-3 py-2 rounded transition-transform duration-150 hover:scale-102 hover:bg-yellow-100/70"
@@ -36,7 +41,7 @@ const PopularItems = ({ items }) => {
                 <div
                   className="h-5 rounded-full"
                   style={{
-                    width: `${(item.count / maxCount) * 100}%`,
+                    width: maxCount ? `${((Number(item.count) || 0) / maxCount) * 100}%` : '0%',
                     background: 'linear-gradient(to right, #FFB700, #FFD233)'
                   }}
                 />
@@ -44,7 +49,7 @@ const PopularItems = ({ items }) => {
 
               {/* Order count */}
               <span className="text-sm text-muted-foreground w-20 text-right whitespace-nowrap flex-shrink-0">
-                {item.count} orders
+                {labelForCount(Number(item.count) || 0)}
               </span>
             </div>
           ))}

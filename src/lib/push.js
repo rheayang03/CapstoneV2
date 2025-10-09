@@ -25,46 +25,85 @@ export async function ensureServiceWorker() {
 
 export async function subscribePush() {
   try {
-    if (!('Notification' in window) || !('serviceWorker' in navigator))
-      return false;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      return { success: false, error: 'Push notifications are not supported.' };
+    }
     if (Notification.permission === 'default') {
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return false;
+      if (perm !== 'granted') {
+        return {
+          success: false,
+          error: 'Notification permission denied.',
+        };
+      }
+    }
+    if (Notification.permission === 'denied') {
+      return {
+        success: false,
+        error: 'Notification permission denied.',
+      };
     }
     const reg = await ensureServiceWorker();
-    if (!reg || !reg.pushManager) return false;
+    if (!reg || !reg.pushManager) {
+      return {
+        success: false,
+        error: 'Service worker unavailable.',
+      };
+    }
 
-    // Get VAPID key from backend
-    const keyRes = await notificationsService.getVapidPublicKey();
-    const pub =
-      keyRes?.publicKey ||
-      keyRes?.data?.publicKey ||
-      import.meta?.env?.VITE_VAPID_PUBLIC_KEY ||
-      '';
-    const appServerKey = pub ? urlBase64ToUint8Array(pub) : undefined;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: appServerKey,
-    });
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const keyRes = await notificationsService.getVapidPublicKey();
+      const pub =
+        keyRes?.publicKey ||
+        keyRes?.data?.publicKey ||
+        import.meta?.env?.VITE_VAPID_PUBLIC_KEY ||
+        '';
+      const appServerKey = pub ? urlBase64ToUint8Array(pub) : undefined;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey,
+      });
+    }
     const payload = sub.toJSON();
-    await notificationsService.subscribePush(payload);
-    return true;
-  } catch {
-    return false;
+    const apiRes = await notificationsService.subscribePush(payload);
+    return {
+      success: true,
+      pushEnabled:
+        typeof apiRes?.pushEnabled === 'boolean'
+          ? apiRes.pushEnabled
+          : true,
+      subscription: sub,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error?.message ||
+        'Failed to subscribe to push notifications.',
+    };
   }
 }
 
 export async function unsubscribePush() {
   try {
     const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg || !reg.pushManager) return false;
+    if (!reg || !reg.pushManager) {
+      return { success: true, pushEnabled: false };
+    }
     const sub = await reg.pushManager.getSubscription();
-    if (!sub) return true;
-    const payload = sub.toJSON();
-    await notificationsService.unsubscribePush(payload);
-    await sub.unsubscribe();
-    return true;
-  } catch {
-    return false;
+    if (sub) {
+      const payload = sub.toJSON();
+      await notificationsService.unsubscribePush(payload);
+      await sub.unsubscribe();
+    }
+    return { success: true, pushEnabled: false };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error?.message ||
+        'Failed to unsubscribe from push notifications.',
+    };
   }
 }
